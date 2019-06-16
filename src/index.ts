@@ -1,14 +1,15 @@
 import { useLayoutEffect, useReducer, useRef } from 'react'
 import shallowEqual from './shallowEqual'
 
-export type State = Record<string, any>
+export type State = { [key: string]: any } //Record<string, any>
 export type StateListener<T extends State, U = T> = (state: U) => void
-export type StateSelector<T extends State, U> = (state: T) => U
+export type StateSelector<T extends State, U = T> = (state: T) => U
 export type PartialState<T extends State> =
   | Partial<T>
   | ((state: T) => Partial<T>)
 export type SetState<T extends State> = (partial: PartialState<T>) => void
 export type GetState<T extends State> = () => T
+export type Destroy = () => void
 
 export interface Subscribe<T> {
   (listener: StateListener<T>): () => void
@@ -22,17 +23,17 @@ export interface StoreApi<T> {
   getState: GetState<T>
   setState: SetState<T>
   subscribe: Subscribe<T>
-  destroy: () => void
+  destroy: Destroy
 }
 
 const reducer = <T>(state: any, newState: T) => newState
 
-export default function create<TState extends State>(
-  createState: (set: SetState<State>, get: GetState<State>, api: any) => TState
-): [UseStore<TState>, StoreApi<TState>] {
-  const listeners: Set<StateListener<TState>> = new Set()
+export default function create<T extends State>(
+  createState: (set: SetState<T>, get: GetState<T>) => T
+): [UseStore<T>, StoreApi<T>] {
+  const listeners: Set<StateListener<T>> = new Set()
 
-  const setState: SetState<TState> = partial => {
+  const setState: SetState<T> = partial => {
     const partialState =
       typeof partial === 'function' ? partial(state) : partial
     if (partialState !== state) {
@@ -41,21 +42,19 @@ export default function create<TState extends State>(
     }
   }
 
-  const getState: GetState<TState> = () => state
+  const getState: GetState<T> = () => state
 
   // Optional selector param goes first so we can infer its return type and use
   // it for listener
-  const subscribe: Subscribe<TState> = <TStateSlice>(
-    selectorOrListener:
-      | StateListener<TState>
-      | StateSelector<TState, TStateSlice>,
-    listenerOrUndef?: StateListener<TState, TStateSlice>
+  const subscribe: Subscribe<T> = <U>(
+    selectorOrListener: StateListener<T> | StateSelector<T, U>,
+    listenerOrUndef?: StateListener<T, U>
   ) => {
     let listener = selectorOrListener
-    // Existance of second param means a selector was passed in
+    // Existence of second param means a selector was passed in
     if (listenerOrUndef) {
       // We know selector is not type StateListener so it must be StateSelector
-      const selector = selectorOrListener as StateSelector<TState, TStateSlice>
+      const selector = selectorOrListener as StateSelector<T, U>
       let stateSlice = selector(state)
       listener = () => {
         const selectedSlice = selector(state)
@@ -67,21 +66,21 @@ export default function create<TState extends State>(
     return () => void listeners.delete(listener)
   }
 
-  const destroy: StoreApi<TState>['destroy'] = () => {
+  const destroy: Destroy = () => {
     listeners.clear()
   }
 
-  const useStore: UseStore<TState> = <TStateSlice>(
-    selector?: StateSelector<TState, TStateSlice>,
+  const useStore: UseStore<T> = <U = T>(
+    selector?: StateSelector<T, U>,
     dependencies?: ReadonlyArray<any>
-  ): TState | TStateSlice => {
+  ): U => {
     const selectorRef = useRef(selector)
     const depsRef = useRef(dependencies)
     let [stateSlice, dispatch] = useReducer(
       reducer,
       state,
       // Optional third argument but required to not be 'undefined'
-      selector as StateSelector<TState, TStateSlice>
+      selector as StateSelector<T, U>
     )
 
     // Need to manually get state slice if selector has changed with no deps or
@@ -116,8 +115,8 @@ export default function create<TState extends State>(
     return stateSlice
   }
 
-  let api = { destroy, getState, setState, subscribe }
-  let state = createState(setState as SetState<State>, getState, api)
+  const api: StoreApi<T> = { destroy, getState, setState, subscribe }
+  let state = createState(setState, getState)
 
   return [useStore, api]
 }

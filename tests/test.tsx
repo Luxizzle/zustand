@@ -16,6 +16,7 @@ import create, {
   StoreApi,
   Subscribe,
   UseStore,
+  Destroy,
 } from '../src/index'
 
 afterEach(cleanup)
@@ -257,15 +258,13 @@ it('can use exposed types', () => {
   const partial: PartialState<ExampleState> = { num: 2, numGet: () => 2 }
   const partialFn: PartialState<ExampleState> = state => ({ num: 2, ...state })
 
-  const [useStore, storeApi] = create(
-    (set: SetState<ExampleState>, get: GetState<ExampleState>) => ({
-      num: 1,
-      numGet: () => get().num,
-      numGetState: () => storeApi.getState().num,
-      numSet: (v: number) => set({ num: v }),
-      numSetState: (v: number) => storeApi.setState({ num: v }),
-    })
-  )
+  const [useStore, storeApi] = create<ExampleState>((set, get) => ({
+    num: 1,
+    numGet: () => get().num,
+    numGetState: () => storeApi.getState().num,
+    numSet: (v: number) => set({ num: v }),
+    numSetState: (v: number) => storeApi.setState({ num: v }),
+  }))
 
   function checkAllTypes(
     getState: GetState<ExampleState>,
@@ -276,6 +275,7 @@ it('can use exposed types', () => {
     stateSelector: StateSelector<ExampleState, number>,
     storeApi: StoreApi<ExampleState>,
     subscribe: Subscribe<ExampleState>,
+    destroy: Destroy,
     useStore: UseStore<ExampleState>
   ) {
     expect(true).toBeTruthy()
@@ -290,6 +290,7 @@ it('can use exposed types', () => {
     selector,
     storeApi,
     storeApi.subscribe,
+    storeApi.destroy,
     useStore
   )
 })
