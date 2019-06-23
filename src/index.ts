@@ -11,15 +11,15 @@ export type SetState<T extends State> = (partial: PartialState<T>) => void
 export type GetState<T extends State> = () => T
 export type Destroy = () => void
 
-export interface Subscribe<T> {
+export interface Subscribe<T extends State> {
   (listener: StateListener<T>): () => void
   <U>(selector: StateSelector<T, U>, listener: StateListener<T, U>): () => void
 }
-export interface UseStore<T> {
+export interface UseStore<T extends State> {
   (): T
   <U>(selector: StateSelector<T, U>, dependencies?: ReadonlyArray<any>): U
 }
-export interface StoreApi<T> {
+export interface StoreApi<T extends State> {
   getState: GetState<T>
   setState: SetState<T>
   subscribe: Subscribe<T>
